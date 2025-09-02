@@ -1,0 +1,4 @@
+date,campaign,ad_group,keyword,product_id,product_name,impressions,clicks,spend,orders,revenue,device,placement,match_type
+2025-08-10,매출최적화_딸기시럽,AG_브랜드,딸기시럽,P001,딸기시럽 500g,12000,360,72000,24,360000,mobile,search,broad
+2025-08-11,수동성과형_딸기퓨레,AG_일반,딸기퓨레,P002,딸기퓨레 1kg,8000,120,42000,8,112000,mobile,search,exact
+
