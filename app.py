@@ -34,19 +34,40 @@ def add_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
 with st.sidebar:
     st.header("1) 파일 업로드")
-    f = st.file_uploader("쿠팡 광고 리포트 CSV 업로드", type=["csv"])
-    st.markdown("""
-    **표준 스키마 권장 열**
-    - date, campaign, ad_group, keyword, product_id, product_name
-    - impressions, clicks, spend, orders, revenue
-    - (선택) channel, device, placement, match_type
-    """)
+    # CSV + 엑셀 허용
+    f = st.file_uploader("쿠팡 광고 리포트 파일 업로드 (CSV/XLSX)", type=["csv","xlsx","xls"])
+    st.markdown(
+        """
+        **표준 스키마 권장 열**
+        - 날짜/일자, 캠페인명, 광고그룹, 키워드, 상품ID, 상품명
+        - 노출수, 클릭수, 광고비(광고비용), 주문수(판매수량), 매출액(전환매출액)
+        """
+    )
 
 if f is None:
-    st.info("왼쪽에서 CSV를 업로드하세요. (먼저 sample.csv로 테스트해보세요)")
+    st.info("왼쪽 사이드바에서 CSV/XLSX 파일을 업로드하세요. (쿠팡 원본 가능)")
     st.stop()
 
-raw = pd.read_csv(f)
+# ---- 파일 로딩: 엑셀/CSV 자동 처리 ----
+name = f.name.lower()
+raw = None
+if name.endswith(("xlsx", "xls")):
+    raw = pd.read_excel(f)   # 엑셀 읽기
+else:
+    # CSV 인코딩 자동 추정: UTF-8 → CP949 → EUC-KR
+    for enc in ("utf-8-sig", "utf-8", "cp949", "euc-kr"):
+        try:
+            f.seek(0)
+            raw = pd.read_csv(f, encoding=enc)
+            break
+        except Exception:
+            pass
+
+if raw is None:
+    st.error("파일을 읽지 못했습니다. CSV는 UTF-8 또는 CP949로 저장해 주세요.")
+    st.stop()
+
+# 열 매핑 expander에서 필요하므로, 원본 컬럼 목록을 준비
 raw_columns = list(raw.columns)
 
 with st.expander("열 매핑(필요 시)", expanded=False):
