@@ -3,3 +3,5 @@ pandas>=2.0
 numpy>=1.24
 python-dateutil>=2.8
 watchdog>=4.0
+
+openpyxl>=3.1
