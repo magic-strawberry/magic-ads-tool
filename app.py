@@ -143,6 +143,9 @@ if missing:
         if manual_map:
             raw = raw.rename(columns=manual_map)
 
+# 중복 컬럼명 제거(첫 번째 것만 유지)
+raw = raw.loc[:, ~raw.columns.duplicated()]
+
 # ===== 정규화/파생 =====
 df = raw.copy()
 # 날짜 변환(1970년 방지: 다양한 포맷 허용 + 실패행 제거)
