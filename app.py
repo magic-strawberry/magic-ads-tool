@@ -32,7 +32,14 @@ METRIC_COLS = ["impressions", "clicks", "spend", "orders", "revenue"]
 def coerce_numeric(df, cols):
     for c in cols:
         if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+            try:
+                df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+            except Exception:
+                # 변환 실패 시 그냥 넘어가기
+                pass
+        else:
+            # 컬럼이 없으면 0으로 채운 임시 컬럼 생성
+            df[c] = 0
     return df
 
 def add_metrics(df: pd.DataFrame) -> pd.DataFrame:
