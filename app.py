@@ -189,7 +189,8 @@ raw = raw.loc[:, ~raw.columns.duplicated()]
 df = raw.copy()
 # 날짜 변환(1970년 방지: 다양한 포맷 허용 + 실패행 제거)
 if "date" in df.columns:
-    df["date"] = parse_date_series(df["date"])
+    # 강제 문자열 변환 후 파서 적용 (YYYYMMDD → 정상 인식)
+    df["date"] = parse_date_series(df["date"].astype(str))
     df = df.dropna(subset=["date"])
 # 숫자화
 df = coerce_numeric(df, METRIC_COLS)
