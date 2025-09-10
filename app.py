@@ -221,67 +221,62 @@ if view.empty:
     st.warning("선택한 조건에 데이터가 없습니다. (기간/캠페인 필터를 조정해보세요)")
     st.stop()
 
-# ===== 탭 구성 (예시본 구조 반영) =====
-tab_dash, tab_camp, tab_kw, tab_prod, tab_margin = st.tabs(
-    ["📊 대시보드", "📈 캠페인 분석", "🔑 키워드 분석", "📦 제품 분석", "💰 마진 계산기"]
-)
 
-# ========== TAB 1. 대시보드 ==========
-with tab_dash:
-    st.subheader("요약 KPI (선택 기간)")
+# --- 좌측 보기 선택 (PPT 좌측 메뉴 느낌) ---
+with st.sidebar:
+    st.header("3) 보기 선택")
+    view_name = st.radio("분석 화면", ["대시보드", "캠페인 분석", "키워드 분석", "제품 분석", "마진 계산기"])
 
-    total_spend = float(view["spend"].sum())
-    total_rev   = float(view["revenue"].sum())
-    total_click = int(view["clicks"].sum())
-    total_impr  = int(view["impressions"].sum())
-    roas = (total_rev/total_spend) if total_spend>0 else 0.0
-    acos = (total_spend/total_rev) if total_rev>0 else 0.0
+# === 대시보드 ===
+if view_name == "대시보드":
+    st.subheader("📊 요약 KPI")
+    spend = float(view["spend"].sum())
+    rev   = float(view["revenue"].sum())
+    clicks= int(view["clicks"].sum())
+    impr  = int(view["impressions"].sum())
+    roas  = (rev/spend)*100 if spend>0 else 0.0
+    acos  = (spend/rev)*100 if rev>0 else 0.0
 
     c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("광고비(Spend)", f"{total_spend:,.0f}")
-    c2.metric("광고매출(Revenue)", f"{total_rev:,.0f}")
-    c3.metric("ROAS", f"{roas*100:,.2f}%")      # % 표기
-    c4.metric("ACoS", f"{acos*100:,.2f}%")      # % 표기
-    c5.metric("클릭", f"{total_click:,.0f}")
-    c6.metric("노출", f"{total_impr:,.0f}")
+    c1.metric("광고비", f"{spend:,.0f}")
+    c2.metric("광고매출", f"{rev:,.0f}")
+    c3.metric("ROAS", f"{roas:,.2f}%")
+    c4.metric("ACoS", f"{acos:,.2f}%")
+    c5.metric("클릭", f"{clicks:,.0f}")
+    c6.metric("노출", f"{impr:,.0f}")
 
-    # 일자별 집계
     if "date" in view.columns:
         by_date = view.groupby("date", as_index=False).agg({
             "spend":"sum","revenue":"sum","clicks":"sum","impressions":"sum"
         })
-        by_date["roas"] = np.where(by_date["spend"]>0, by_date["revenue"]/by_date["spend"], 0.0)
+        by_date["roas_pct"] = np.where(by_date["spend"]>0, by_date["revenue"]/by_date["spend"]*100, 0.0)
 
-        st.markdown("### 지출 추이")
+        st.markdown("### 지출 추이 (원)")
         st.line_chart(by_date.set_index("date")["spend"])
 
-        st.markdown("### 매출 추이")
+        st.markdown("### 매출 추이 (원)")
         st.line_chart(by_date.set_index("date")["revenue"])
 
         st.markdown("### ROAS 추이 (%)")
-        st.line_chart(by_date.set_index("date")["roas"]*100)
-
-    st.markdown("<div class='small-note tight'>* 그래프가 비어 보이면 날짜 매핑 또는 기간 필터를 확인하세요.</div>", unsafe_allow_html=True)
-
-# ========== TAB 2. 캠페인 분석 ==========
-with tab_camp:
-    st.subheader("캠페인별 성과")
+        st.line_chart(by_date.set_index("date")["roas_pct"])
+# === 캠페인 분석 ===
+elif view_name == "캠페인 분석":
+    st.subheader("📈 캠페인별 성과")
     camp = view.groupby("campaign", as_index=False).agg({
         "impressions":"sum","clicks":"sum","spend":"sum","orders":"sum","revenue":"sum"
     })
     camp = add_metrics(camp)
-    # 보기 좋게 %변환 컬럼도 함께 보여주기
-    show = camp.copy()
-    show["roas(%)"] = show["roas"]*100
-    show["acos(%)"] = show["acos"]*100
+    camp["ROAS(%)"] = camp["roas"]*100
+    camp["ACoS(%)"] = camp["acos"]*100
     st.dataframe(
-        show[["campaign","impressions","clicks","spend","orders","revenue","roas(%)","acos(%)","cpc","ctr","cvr"]],
+        camp[["campaign","impressions","clicks","spend","orders","revenue","ROAS(%)","ACoS(%)","cpc","ctr","cvr"]]
+            .sort_values("revenue", ascending=False),
         use_container_width=True
     )
 
-# ========== TAB 3. 키워드 분석 ==========
-with tab_kw:
-    st.subheader("키워드별 성과")
+# === 키워드 분석 ===
+elif view_name == "키워드 분석":
+    st.subheader("🔑 키워드별 성과")
     if "keyword" in view.columns:
         group_cols = ["keyword"]
         if "match_type" in view.columns:
@@ -292,81 +287,46 @@ with tab_kw:
             "impressions":"sum","clicks":"sum","spend":"sum","orders":"sum","revenue":"sum"
         })
         kw = add_metrics(kw)
-        show_kw = kw.copy()
-        show_kw["roas(%)"] = show_kw["roas"]*100
-        show_kw["acos(%)"] = show_kw["acos"]*100
-
-        st.dataframe(
-            show_kw.sort_values("revenue", ascending=False),
-            use_container_width=True
-        )
-
-        # 간단한 성과 분류
-        colA, colB, colC = st.columns(3)
-        target_acos = colA.number_input("목표 ACoS(%)", value=25.0, step=1.0)/100.0
-        min_clicks  = colB.number_input("최소 클릭(분석대상)", value=50, step=10)
-        min_orders  = colC.number_input("성과 좋음: 최소 주문수", value=3, step=1)
-
-        good = kw[(kw["orders"]>=min_orders) & (kw["acos"]<=target_acos)]
-        zero = kw[(kw["clicks"]>=100) & (kw["orders"]==0)]
-        bad  = kw[(kw["acos"]>target_acos) & (kw["clicks"]>=min_clicks)]
-
-        st.markdown("**성과 좋음(승자 후보)**")
-        g = good.copy(); g["roas(%)"]=g["roas"]*100; g["acos(%)"]=g["acos"]*100
-        st.dataframe(g.sort_values("roas", ascending=False), use_container_width=True)
-
-        st.markdown("**성과 없음(일시중지 후보)** — 클릭≥100 & 주문=0")
-        st.dataframe(zero.sort_values("clicks", ascending=False), use_container_width=True)
-
-        st.markdown("**비효율(입찰↓ 후보)** — ACoS>목표 & 클릭 충분")
-        b = bad.copy(); b["acos(%)"]=b["acos"]*100
-        st.dataframe(b.sort_values("acos", ascending=False), use_container_width=True)
+        kw["ROAS(%)"] = kw["roas"]*100
+        kw["ACoS(%)"] = kw["acos"]*100
+        st.dataframe(kw.sort_values("revenue", ascending=False), use_container_width=True)
     else:
-        st.info("키워드 열이 없습니다. (검색어/키워드 열 매핑 필요)")
+        st.info("키워드 열이 없습니다. (열 매핑 필요)")
 
-# ========== TAB 4. 제품 분석 ==========
-with tab_prod:
-    st.subheader("제품(옵션)별 성과")
+# === 제품 분석 ===
+elif view_name == "제품 분석":
+    st.subheader("📦 제품(옵션)별 성과")
     if {"product_id","product_name"}.issubset(view.columns):
         prod = view.groupby(["product_id","product_name"], as_index=False).agg({
             "impressions":"sum","clicks":"sum","spend":"sum","orders":"sum","revenue":"sum"
         })
         prod = add_metrics(prod)
-        show_prod = prod.copy()
-        show_prod["roas(%)"] = show_prod["roas"]*100
-        show_prod["acos(%)"] = show_prod["acos"]*100
-        st.dataframe(
-            show_prod.sort_values("revenue", ascending=False),
-            use_container_width=True
-        )
+        prod["ROAS(%)"] = prod["roas"]*100
+        prod["ACoS(%)"] = prod["acos"]*100
+        st.dataframe(prod.sort_values("revenue", ascending=False), use_container_width=True)
     else:
-        st.info("product_id/product_name 열이 없습니다. (열 매핑에서 연결하세요)")
+        st.info("product_id/product_name 열이 없습니다. (열 매핑에서 연결)")
 
-# ========== TAB 5. 마진 계산기 ==========
-with tab_margin:
-    st.subheader("마진 계산기")
+# === 마진 계산기 ===
+elif view_name == "마진 계산기":
+    st.subheader("💰 마진 계산기")
     left, right = st.columns([1,2])
     with left:
-        st.markdown("**기본값 입력(없으면 0으로 두세요)**")
-        price_adj = st.number_input("판매가 조정(옵션, 총액 기준)", value=0.0, step=100.0)
+        price_adj = st.number_input("판매가 조정(총액)", value=0.0, step=100.0)
         cost      = st.number_input("원가(총합)", value=0.0, step=100.0)
         fee_pct   = st.number_input("채널 수수료(%)", value=12.0, step=0.5)/100.0
         ship      = st.number_input("배송비(총합)", value=0.0, step=100.0)
         other     = st.number_input("기타비용(총합)", value=0.0, step=100.0)
-
     with right:
         rev = float(view["revenue"].sum()) + price_adj
         spend = float(view["spend"].sum())
         fee  = rev * fee_pct
         profit = rev - spend - fee - ship - other - cost
         margin = (profit/rev)*100 if rev>0 else 0.0
-
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("매출", f"{rev:,.0f}")
         c2.metric("광고비", f"{spend:,.0f}")
-        c3.metric("예상 수수료", f"{fee:,.0f}")
-        c4.metric("추정 이익", f"{profit:,.0f}")
+        c3.metric("수수료", f"{fee:,.0f}")
+        c4.metric("순이익", f"{profit:,.0f}")
         st.metric("마진율", f"{margin:,.2f}%")
-
-st.markdown("<div class='small-note'>* 예시본 구조 참고: 대시보드/캠페인/키워드/제품/마진 탭으로 분리하여 복잡도를 낮췄습니다.</div>", unsafe_allow_html=True)
 
