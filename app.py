@@ -9,32 +9,39 @@ import streamlit as st
 # ===== 날짜 파서 (여러 포맷 + 엑셀 직렬숫자 대응) =====
 def parse_date_series(s: pd.Series) -> pd.Series:
     import pandas as pd
-    out = pd.to_datetime(s, errors="coerce")
+    s0 = s.copy()
 
-    # YYYY.MM.DD
-    mask = out.isna()
-    if mask.any():
-        out.loc[mask] = pd.to_datetime(s[mask], format="%Y.%m.%d", errors="coerce")
+    # 0) 문자열로 통일 + 공백 제거 + ".0" 제거(엑셀로 인한 정수->실수 흔적)
+    s_str = s0.astype(str).str.strip().str.replace(r"\.0$", "", regex=True)
 
-    # YYYY/MM/DD
-    mask = out.isna()
-    if mask.any():
-        out.loc[mask] = pd.to_datetime(s[mask], format="%Y/%m/%d", errors="coerce")
+    # 결과 컨테이너: 전부 NaT로 시작
+    out = pd.Series(pd.NaT, index=s_str.index, dtype="datetime64[ns]")
 
-    # YYYYMMDD (쿠팡 보고서)
-    mask = out.isna()
-    if mask.any():
-        out.loc[mask] = pd.to_datetime(s[mask], format="%Y%m%d", errors="coerce")
+    # 1) 정확히 8자리 숫자(YYYYMMDD) → 우선순위 가장 높음
+    m8 = s_str.str.match(r"^\d{8}$")
+    if m8.any():
+        out.loc[m8] = pd.to_datetime(s_str.loc[m8], format="%Y%m%d", errors="coerce")
 
-    # 엑셀 직렬 숫자
-    try:
-        num_mask = s.astype(str).str.fullmatch(r"\d+")
-        if num_mask.any():
-            excel_dates = pd.to_datetime(pd.to_numeric(s[num_mask], errors="coerce"),
-                                         unit="d", origin="1899-12-30", errors="coerce")
-            out.loc[num_mask] = out.loc[num_mask].fillna(excel_dates)
-    except Exception:
-        pass
+    # 2) 점/슬래시 포맷
+    m_dot = out.isna() & s_str.str.match(r"^\d{4}\.\d{2}\.\d{2}$")
+    if m_dot.any():
+        out.loc[m_dot] = pd.to_datetime(s_str.loc[m_dot], format="%Y.%m.%d", errors="coerce")
+
+    m_slash = out.isna() & s_str.str.match(r"^\d{4}/\d{2}/\d{2}$")
+    if m_slash.any():
+        out.loc[m_slash] = pd.to_datetime(s_str.loc[m_slash], format="%Y/%m/%d", errors="coerce")
+
+    # 3) 일반 자동 파싱 (남은 것)
+    m_auto = out.isna()
+    if m_auto.any():
+        out.loc[m_auto] = pd.to_datetime(s_str.loc[m_auto], errors="coerce")
+
+    # 4) 엑셀 직렬숫자(날짜) 처리: 순수 숫자이지만 8자리가 아닌 경우
+    #    (예: 45432 → 2024-05-24)
+    m_excel = out.isna() & s_str.str.match(r"^\d+$")
+    if m_excel.any():
+        out.loc[m_excel] = pd.to_datetime(pd.to_numeric(s_str.loc[m_excel], errors="coerce"),
+                                          unit="d", origin="1899-12-30", errors="coerce")
 
     return out.dt.date
 
