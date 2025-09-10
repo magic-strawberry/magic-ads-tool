@@ -225,7 +225,14 @@ if view.empty:
 # --- 좌측 보기 선택 (PPT 좌측 메뉴 느낌) ---
 with st.sidebar:
     st.header("3) 보기 선택")
-    view_name = st.radio("분석 화면", ["대시보드", "캠페인 분석", "키워드 분석", "제품 분석", "마진 계산기"])
+view_name = st.radio(
+        "분석 화면",
+        ["대시보드", "캠페인 분석", "키워드 분석", "제품 분석", "마진 계산기"]
+    )
+
+    # --- 대시보드 계산 설정(수수료 %) ---
+    st.header("대시보드 계산 설정")
+    fee_pct_input = st.number_input("수수료(%)", value=12.0, step=0.5) / 100.0
 
 # === 대시보드 ===
 if view_name == "대시보드":
