@@ -9,18 +9,24 @@ import streamlit as st
 # ===== 날짜 파서 (여러 포맷 + 엑셀 직렬숫자 대응) =====
 def parse_date_series(s: pd.Series) -> pd.Series:
     import pandas as pd
-    # 1차: 자동 파싱
     out = pd.to_datetime(s, errors="coerce")
 
-    # 2차: 흔한 포맷 보강 (2025.08.11 / 2025/08/11)
+    # YYYY.MM.DD
     mask = out.isna()
     if mask.any():
         out.loc[mask] = pd.to_datetime(s[mask], format="%Y.%m.%d", errors="coerce")
+
+    # YYYY/MM/DD
     mask = out.isna()
     if mask.any():
         out.loc[mask] = pd.to_datetime(s[mask], format="%Y/%m/%d", errors="coerce")
 
-    # 3차: 엑셀 직렬 숫자(예: 45432) 처리
+    # YYYYMMDD (쿠팡 보고서)
+    mask = out.isna()
+    if mask.any():
+        out.loc[mask] = pd.to_datetime(s[mask], format="%Y%m%d", errors="coerce")
+
+    # 엑셀 직렬 숫자
     try:
         num_mask = s.astype(str).str.fullmatch(r"\d+")
         if num_mask.any():
