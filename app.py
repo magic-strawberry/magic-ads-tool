@@ -230,35 +230,31 @@ with st.sidebar:
 # === 대시보드 ===
 if view_name == "대시보드":
     st.subheader("📊 요약 KPI")
-    spend = float(view["spend"].sum())
-    rev   = float(view["revenue"].sum())
-    clicks= int(view["clicks"].sum())
-    impr  = int(view["impressions"].sum())
-    roas  = (rev/spend)*100 if spend>0 else 0.0
-    acos  = (spend/rev)*100 if rev>0 else 0.0
 
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    c1.metric("광고비", f"{spend:,.0f}")
-    c2.metric("광고매출", f"{rev:,.0f}")
-    c3.metric("ROAS", f"{roas:,.2f}%")
-    c4.metric("ACoS", f"{acos:,.2f}%")
-    c5.metric("클릭", f"{clicks:,.0f}")
-    c6.metric("노출", f"{impr:,.0f}")
+    spend  = float(view["spend"].sum())
+    rev    = float(view["revenue"].sum())
+    clicks = int(view["clicks"].sum())
+    impr   = int(view["impressions"].sum())
 
-    if "date" in view.columns:
-        by_date = view.groupby("date", as_index=False).agg({
-            "spend":"sum","revenue":"sum","clicks":"sum","impressions":"sum"
-        })
-        by_date["roas_pct"] = np.where(by_date["spend"]>0, by_date["revenue"]/by_date["spend"]*100, 0.0)
+    roas   = (rev/spend) if spend>0 else 0.0
+    acos   = (spend/rev) if rev>0 else 0.0
 
-        st.markdown("### 지출 추이 (원)")
-        st.line_chart(by_date.set_index("date")["spend"])
+    net_sales = rev - spend
+    est_fee   = rev * fee_pct_input
+    profit    = rev - spend - est_fee
 
-        st.markdown("### 매출 추이 (원)")
-        st.line_chart(by_date.set_index("date")["revenue"])
+    # 첫 줄 (3개)
+    row1_col1, row1_col2, row1_col3 = st.columns(3)
+    row1_col1.metric("광고매출", f"{rev:,.0f}")
+    row1_col2.metric("ROAS", f"{roas*100:,.2f}%")
+    row1_col3.metric("광고비", f"{spend:,.0f}")
 
-        st.markdown("### ROAS 추이 (%)")
-        st.line_chart(by_date.set_index("date")["roas_pct"])
+    # 두 번째 줄 (4개)
+    row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4)
+    row2_col1.metric("순수매출", f"{net_sales:,.0f}")
+    row2_col2.metric("순이익(간단)", f"{profit:,.0f}")
+    row2_col3.metric("클릭", f"{clicks:,.0f}")
+    row2_col4.metric("노출", f"{impr:,.0f}")
 # === 캠페인 분석 ===
 elif view_name == "캠페인 분석":
     st.subheader("📈 캠페인별 성과")
