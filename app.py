@@ -46,15 +46,27 @@ def parse_date_series(s: pd.Series) -> pd.Series:
     return out.dt.date
 
 st.set_page_config(page_title="마법의딸기 AI 광고 대시보드", layout="wide")
-st.markdown(
-    """
-    <style>
-    .small-note {color:#6b7280;font-size:0.9rem;}
-    .tight {margin-top:-0.5rem}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<style>
+.cards { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+.card  { grid-column: span 4; background: #fff; border-radius: 14px; 
+         box-shadow: 0 4px 16px rgba(0,0,0,.06); padding: 18px 20px; }
+.card h4{ margin:0 0 6px 0; font-size: .95rem; color:#6b7280; font-weight:600;}
+.card .v{ font-size: 1.8rem; font-weight:700; color:#111827; }
+.card .s{ margin-top:4px; font-size:.85rem; color:#9ca3af; }
+@media (max-width: 1200px){ .card{grid-column: span 6;} }
+@media (max-width: 780px) { .card{grid-column: span 12;} }
+</style>
+""", unsafe_allow_html=True)
+def card(title:str, value:str, sub:str=""):
+    st.markdown(
+        f"""<div class="card">
+              <h4>{title}</h4>
+              <div class="v">{value}</div>
+              <div class="s">{sub}</div>
+            </div>""",
+        unsafe_allow_html=True
+    )
 
 st.title("🍓 마법의딸기 — AI 광고 대시보드")
 st.caption("CSV/XLSX 업로드 → 기간 선택 → 대시보드/캠페인/키워드/제품별 분석 → 마진 계산기")
@@ -253,18 +265,22 @@ if view_name == "대시보드":
     est_fee   = rev * fee_pct_input
     profit    = rev - spend - est_fee
 
-    # 첫 줄 (3개)
-    row1_col1, row1_col2, row1_col3 = st.columns(3)
-    row1_col1.metric("광고매출", f"{rev:,.0f}")
-    row1_col2.metric("ROAS", f"{roas*100:,.2f}%")
-    row1_col3.metric("광고비", f"{spend:,.0f}")
+# ---- 카드 영역 시작 ----
+st.markdown('<div class="cards">', unsafe_allow_html=True)
 
-    # 두 번째 줄 (4개)
-    row2_col1, row2_col2, row2_col3, row2_col4 = st.columns(4)
-    row2_col1.metric("순수매출", f"{net_sales:,.0f}")
-    row2_col2.metric("순이익(간단)", f"{profit:,.0f}")
-    row2_col3.metric("클릭", f"{clicks:,.0f}")
-    row2_col4.metric("노출", f"{impr:,.0f}")
+# 1줄(3개)
+card("광고매출",      f"{rev:,.0f}",        "기간 합계")
+card("ROAS",         f"{roas*100:,.2f}%",  "광고매출 ÷ 광고비")
+card("광고비",        f"{spend:,.0f}",      "기간 합계")
+
+# 2줄(4개)
+card("순수매출",      f"{(rev-spend):,.0f}",  "매출 – 광고비")
+card("순이익(간단)",  f"{(rev-spend - rev*fee_pct_input):,.0f}", f"수수료 {fee_pct_input*100:.1f}% 적용")
+card("클릭",          f"{clicks:,.0f}",     "")
+card("노출",          f"{impr:,.0f}",      "")
+
+st.markdown('</div>', unsafe_allow_html=True)
+# ---- 카드 영역 끝 ----
 # === 캠페인 분석 ===
 elif view_name == "캠페인 분석":
     st.subheader("📈 캠페인별 성과")
