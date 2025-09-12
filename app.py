@@ -258,29 +258,30 @@ if view_name == "대시보드":
     clicks = int(view["clicks"].sum())
     impr   = int(view["impressions"].sum())
 
-    roas   = (rev/spend) if spend>0 else 0.0
-    acos   = (spend/rev) if rev>0 else 0.0
+    roas   = (rev/spend) if spend > 0 else 0.0
+    acos   = (spend/rev) if rev > 0 else 0.0
 
     net_sales = rev - spend
     est_fee   = rev * fee_pct_input
     profit    = rev - spend - est_fee
 
-# ---- 카드 영역 시작 ----
-st.markdown('<div class="cards">', unsafe_allow_html=True)
+    # ---- 카드 영역 ----
+    st.markdown('<div class="cards">', unsafe_allow_html=True)
 
-# 1줄(3개)
-card("광고매출",      f"{rev:,.0f}",        "기간 합계")
-card("ROAS",         f"{roas*100:,.2f}%",  "광고매출 ÷ 광고비")
-card("광고비",        f"{spend:,.0f}",      "기간 합계")
+    # 1줄 (3개)
+    card("광고매출", f"{rev:,.0f}", "기간 합계")
+    card("ROAS", f"{roas*100:,.2f}%", "광고매출 ÷ 광고비")
+    card("광고비", f"{spend:,.0f}", "기간 합계")
 
-# 2줄(4개)
-card("순수매출",      f"{(rev-spend):,.0f}",  "매출 – 광고비")
-card("순이익(간단)",  f"{(rev-spend - rev*fee_pct_input):,.0f}", f"수수료 {fee_pct_input*100:.1f}% 적용")
-card("클릭",          f"{clicks:,.0f}",     "")
-card("노출",          f"{impr:,.0f}",      "")
+    # 2줄 (4개)
+    card("순수매출", f"{(rev-spend):,.0f}", "매출 – 광고비")
+    card("순이익(간단)", f"{(rev-spend - rev*fee_pct_input):,.0f}", f"수수료 {fee_pct_input*100:.1f}% 적용")
+    card("클릭", f"{clicks:,.0f}", "")
+    card("노출", f"{impr:,.0f}", "")
 
-st.markdown('</div>', unsafe_allow_html=True)
-# ---- 카드 영역 끝 ----
+    st.markdown('</div>', unsafe_allow_html=True)
+    # ---- 카드 영역 끝 ----
+
 # === 캠페인 분석 ===
 elif view_name == "캠페인 분석":
     st.subheader("📈 캠페인별 성과")
