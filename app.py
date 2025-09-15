@@ -120,7 +120,7 @@ def parse_date_series(s: pd.Series) -> pd.Series:
 # --- 사이드바 표준 블록 (중복 금지, 한 번만 존재해야 함) ---
 with st.sidebar:
     st.header("1) 파일 업로드")
-f = st.file_uploader("파일 업로드 (CSV/XLSX)", type=["csv","xlsx","xls"])
+    f = st.file_uploader("파일 업로드 (CSV/XLSX)", type=["csv","xlsx","xls"])
 
     st.header("2) 필터")
     # 날짜 범위
