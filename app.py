@@ -231,8 +231,11 @@ df = coerce_numeric(df, METRIC_COLS)
 # 파생지표
 df = add_metrics(df)
 
-# ===== 필터 =====
+# --- 사이드바 (표준, 단 하나만) ---
 with st.sidebar:
+    st.header("1) 파일 업로드")
+    f = st.file_uploader("파일 업로드 (CSV/XLSX)", type=["csv","xlsx","xls"])
+
     st.header("2) 필터")
     # 날짜 범위
     if "date" in df.columns and not df["date"].dropna().empty:
@@ -240,36 +243,39 @@ with st.sidebar:
         start, end = st.date_input("기간 선택", value=(min_d, max_d), min_value=min_d, max_value=max_d)
     else:
         start, end = None, None
-    # 캠페인
+
+    # 캠페인 목록
     campaigns = sorted(df["campaign"].dropna().unique().tolist()) if "campaign" in df.columns else []
-    sel_campaigns = st.multiselect("캠페인 선택(미선택=전체)", campaigns)
 
-# 필터 적용
-view = df.copy()
-if start and end:
-    view = view[(view["date"] >= start) & (view["date"] <= end)]
-if sel_campaigns:
-    view = view[view["campaign"].isin(sel_campaigns)]
-
-if view.empty:
-    st.warning("선택한 조건에 데이터가 없습니다. (기간/캠페인 필터를 조정해보세요)")
-    st.stop()
-
-
-# --- 좌측 보기 선택 (PPT 좌측 메뉴 느낌) ---
-with st.sidebar:
-    st.header("3) 보기 선택")
-# --- 좌측 보기 선택 (PPT 좌측 메뉴 느낌) ---
-with st.sidebar:
     st.header("3) 보기 선택")
     view_name = st.radio(
         "분석 화면",
         ["대시보드", "캠페인 분석", "키워드 분석", "제품 분석", "마진 계산기"]
     )
 
-    # --- 대시보드 계산 설정(수수료 %) ---
+    # 캠페인 분석 화면에서만 단일 선택 라디오 표시
+    selected_campaign = "(전체)"
+    if view_name == "캠페인 분석":
+        selected_campaign = st.radio("캠페인 선택(단일)", ["(전체)"] + campaigns, index=0)
+
     st.header("대시보드 계산 설정")
     fee_pct_input = st.number_input("수수료(%)", value=12.0, step=0.5) / 100.0
+# --- 사이드바 끝 ---
+# --- 필터 적용 ---
+view = df.copy()
+
+# 날짜 범위 필터
+if start and end:
+    view = view[(view["date"] >= start) & (view["date"] <= end)]
+
+# 캠페인 단일 선택 필터 (사이드바 라디오 값 사용)
+if 'selected_campaign' in globals() and selected_campaign != "(전체)":
+    view = view[view["campaign"] == selected_campaign]
+
+# 데이터 없을 때 경고
+if view.empty:
+    st.warning("선택한 조건에 데이터가 없습니다. (기간/캠페인 필터를 조정해보세요)")
+    st.stop()
 
 # === 대시보드 ===
 if view_name == "대시보드":
