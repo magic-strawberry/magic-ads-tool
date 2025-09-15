@@ -117,22 +117,44 @@ def parse_date_series(s: pd.Series) -> pd.Series:
     # 드롭 NaT
     return out.dt.date
 
-# ===== 사이드바: 업로드 & 안내 =====
+# --- 사이드바 표준 블록 (중복 금지, 한 번만 존재해야 함) ---
 with st.sidebar:
     st.header("1) 파일 업로드")
-    f = st.file_uploader("쿠팡 광고 리포트 파일 업로드 (CSV/XLSX)", type=["csv","xlsx","xls"])
-    st.markdown(
-        """
-        **필수 컬럼**  
-        `date, campaign, ad_group, keyword, product_id, product_name, impressions, clicks, spend, orders, revenue`  
-        <span class='small-note'>*자동 매핑 실패 시 아래 '열 매핑'에서 연결</span>
-        """,
-        unsafe_allow_html=True,
+f = st.file_uploader("파일 업로드 (CSV/XLSX)", type=["csv","xlsx","xls"])
+
+    st.header("2) 필터")
+    # 날짜 범위
+    if "date" in df.columns and not df["date"].empty:
+        min_d, max_d = df["date"].min(), df["date"].max()
+        start, end = st.date_input("기간 선택", value=(min_d, max_d), min_value=min_d, max_value=max_d)
+    else:
+        start, end = None, None
+
+    # 캠페인 선택
+    campaigns = sorted(df["campaign"].dropna().unique().tolist()) if "campaign" in df.columns else []
+# (사이드바 표준 블록 안)
+st.header("2) 필터")
+# 날짜 범위는 그대로 유지 ...
+
+# 🔻 기존 멀티선택 줄이 있었다면 지우세요/주석처리
+# sel_campaigns = st.multiselect("캠페인 선택(미선택=전체)", campaigns)
+
+# 🔻 단일 선택(라디오) 추가
+selected_campaign = st.radio(
+    "캠페인 선택(단일)",
+    ["(전체)"] + campaigns,
+    index=0
+)
+
+    st.header("3) 보기 선택")
+    view_name = st.radio(
+        "분석 화면",
+        ["대시보드", "캠페인 분석", "키워드 분석", "제품 분석", "마진 계산기"]
     )
 
-if f is None:
-    st.info("왼쪽 사이드바에서 CSV/XLSX 파일을 업로드하세요. (쿠팡 원본 가능)")
-    st.stop()
+    st.header("대시보드 계산 설정")
+    fee_pct_input = st.number_input("수수료(%)", value=12.0, step=0.5) / 100.0
+# --- 사이드바 표준 블록 끝 ---
 
 # ===== 파일 로딩: 엑셀/CSV 자동 처리 =====
 name = f.name.lower()
@@ -285,16 +307,63 @@ if view_name == "대시보드":
 # === 캠페인 분석 ===
 elif view_name == "캠페인 분석":
     st.subheader("📈 캠페인별 성과")
-    camp = view.groupby("campaign", as_index=False).agg({
-        "impressions":"sum","clicks":"sum","spend":"sum","orders":"sum","revenue":"sum"
+
+    # ① 선택 캠페인 반영 (좌측 라디오)
+    view_camp = view.copy()
+    if selected_campaign != "(전체)":
+        view_camp = view_camp[view_camp["campaign"] == selected_campaign]
+
+    if view_camp.empty:
+        st.info("선택한 조건에 데이터가 없습니다. 기간/캠페인을 확인하세요.")
+        st.stop()
+
+    # ② 집계: 캠페인별 KPI
+    camp = (
+        view_camp.groupby("campaign", as_index=False)
+        .agg({
+            "impressions":"sum",
+            "clicks":"sum",
+            "spend":"sum",
+            "orders":"sum",
+            "revenue":"sum"
+        })
+    )
+
+    # 파생 지표
+    camp["CTR(%)"]  = (camp["clicks"]/camp["impressions"]).fillna(0)*100
+    camp["CPC"]     = (camp["spend"]/camp["clicks"]).fillna(0)
+    camp["CVR(%)"]  = (camp["orders"]/camp["clicks"]).fillna(0)*100
+    camp["ROAS(%)"] = (camp["revenue"]/camp["spend"]).fillna(0)*100
+    camp["ACoS(%)"] = (camp["spend"]/camp["revenue"]).fillna(0)*100
+    camp["CPA"]     = (camp["spend"]/camp["orders"]).replace([np.inf, -np.inf], 0).fillna(0)
+
+    # ③ 표시용 포맷(쉼표/퍼센트) — 문자열로 만들어 시각적으로 깔끔
+    def num(x): return f"{float(x):,.0f}"
+    def pct(x): return f"{float(x):,.2f}%"
+
+    disp = pd.DataFrame({
+        "캠페인":       camp["campaign"],
+        "노출":        camp["impressions"].map(num),
+        "클릭":        camp["clicks"].map(num),
+        "CTR(%)":      camp["CTR(%)"].map(pct),
+        "광고비":      camp["spend"].map(num),
+        "광고매출":     camp["revenue"].map(num),
+        "ROAS(%)":     camp["ROAS(%)"].map(pct),
+        "ACoS(%)":     camp["ACoS(%)"].map(pct),
+        "CPC":         camp["CPC"].map(num),
+        "주문수":       camp["orders"].map(num),
+        "CVR(%)":      camp["CVR(%)"].map(pct),
+        "CPA":         camp["CPA"].map(num),
     })
-    camp = add_metrics(camp)
-    camp["ROAS(%)"] = camp["roas"]*100
-    camp["ACoS(%)"] = camp["acos"]*100
+
+    # ④ 설명 박스(옵션): PPT처럼 상단 안내 문구
+    st.markdown("> ROAS/ACoS, 클릭률·전환율 등을 참고해 성과가 좋은 캠페인을 우선 검토해보세요.")
+
+    # ⑤ 테이블 렌더 — 매출 기준 내림차순
     st.dataframe(
-        camp[["campaign","impressions","clicks","spend","orders","revenue","ROAS(%)","ACoS(%)","cpc","ctr","cvr"]]
-            .sort_values("revenue", ascending=False),
-        use_container_width=True
+        disp.sort_values("광고매출", ascending=False),
+        use_container_width=True,
+        hide_index=True
     )
 
 # === 키워드 분석 ===
