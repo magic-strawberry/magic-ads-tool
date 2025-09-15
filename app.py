@@ -117,34 +117,26 @@ def parse_date_series(s: pd.Series) -> pd.Series:
     # 드롭 NaT
     return out.dt.date
 
-# --- 사이드바 표준 블록 (중복 금지, 한 번만 존재해야 함) ---
+# --- 사이드바 표준 블록 (단 하나만 존재) ---
 with st.sidebar:
     st.header("1) 파일 업로드")
     f = st.file_uploader("파일 업로드 (CSV/XLSX)", type=["csv","xlsx","xls"])
 
     st.header("2) 필터")
     # 날짜 범위
-    if "date" in df.columns and not df["date"].empty:
+    if "date" in df.columns and not df["date"].dropna().empty:
         min_d, max_d = df["date"].min(), df["date"].max()
-        start, end = st.date_input("기간 선택", value=(min_d, max_d), min_value=min_d, max_value=max_d)
+        start, end = st.date_input(
+            "기간 선택",
+            value=(min_d, max_d),
+            min_value=min_d,
+            max_value=max_d
+        )
     else:
         start, end = None, None
 
-    # 캠페인 선택
+    # 캠페인 목록
     campaigns = sorted(df["campaign"].dropna().unique().tolist()) if "campaign" in df.columns else []
-# (사이드바 표준 블록 안)
-st.header("2) 필터")
-# 날짜 범위는 그대로 유지 ...
-
-# 🔻 기존 멀티선택 줄이 있었다면 지우세요/주석처리
-# sel_campaigns = st.multiselect("캠페인 선택(미선택=전체)", campaigns)
-
-# 🔻 단일 선택(라디오) 추가
-selected_campaign = st.radio(
-    "캠페인 선택(단일)",
-    ["(전체)"] + campaigns,
-    index=0
-)
 
     st.header("3) 보기 선택")
     view_name = st.radio(
@@ -152,9 +144,26 @@ selected_campaign = st.radio(
         ["대시보드", "캠페인 분석", "키워드 분석", "제품 분석", "마진 계산기"]
     )
 
+    # 캠페인 분석 화면일 때만 단일 선택 라디오 표시
+    selected_campaign = "(전체)"
+    if view_name == "캠페인 분석":
+        selected_campaign = st.radio("캠페인 선택(단일)", ["(전체)"] + campaigns, index=0)
+
     st.header("대시보드 계산 설정")
     fee_pct_input = st.number_input("수수료(%)", value=12.0, step=0.5) / 100.0
 # --- 사이드바 표준 블록 끝 ---
+# --- 필터 적용 ---
+view = df.copy()
+if start and end:
+    view = view[(view["date"] >= start) & (view["date"] <= end)]
+
+# 캠페인 단일 선택 반영
+if selected_campaign != "(전체)":
+    view = view[view["campaign"] == selected_campaign]
+
+if view.empty:
+    st.warning("선택한 조건에 데이터가 없습니다. (기간/캠페인 필터를 조정해보세요)")
+    st.stop()
 
 # ===== 파일 로딩: 엑셀/CSV 자동 처리 =====
 name = f.name.lower()
