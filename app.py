@@ -240,7 +240,12 @@ with st.sidebar:
     # 날짜 범위
     if "date" in df.columns and not df["date"].dropna().empty:
         min_d, max_d = df["date"].min(), df["date"].max()
-        start, end = st.date_input("기간 선택", value=(min_d, max_d), min_value=min_d, max_value=max_d)
+        start, end = st.date_input(
+            "기간 선택",
+            value=(min_d, max_d),
+            min_value=min_d,
+            max_value=max_d
+        )
     else:
         start, end = None, None
 
@@ -253,14 +258,19 @@ with st.sidebar:
         ["대시보드", "캠페인 분석", "키워드 분석", "제품 분석", "마진 계산기"]
     )
 
-    # 캠페인 분석 화면에서만 단일 선택 라디오 표시
+    # 캠페인 분석 화면에서만 단일 캠페인 라디오 표시
     selected_campaign = "(전체)"
     if view_name == "캠페인 분석":
-        selected_campaign = st.radio("캠페인 선택(단일)", ["(전체)"] + campaigns, index=0)
+        selected_campaign = st.radio(
+            "캠페인 선택(단일)",
+            ["(전체)"] + campaigns,
+            index=0
+        )
 
     st.header("대시보드 계산 설정")
     fee_pct_input = st.number_input("수수료(%)", value=12.0, step=0.5) / 100.0
 # --- 사이드바 끝 ---
+
 # --- 필터 적용 ---
 view = df.copy()
 
